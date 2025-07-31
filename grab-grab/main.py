@@ -2,11 +2,14 @@ from selenium import webdriver
 from selenium.webdriver import ActionChains
 from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
 from bs4 import BeautifulSoup
 from time import sleep
-from datetime import datetime
+from datetime import datetime, timezone
 
-import chromedriver_binary  # Adds chromedriver binary to path
+# Remove the chromedriver_binary import as we'll use webdriver-manager instead
+# import chromedriver_binary  # Adds chromedriver binary to path
 
 import traceback
 import argparse, sys
@@ -36,8 +39,12 @@ class GrabberApp:
         #        chrome_options.add_argument('--disable-dev-shm-usage')
         # chrome_options.add_argument("--disable-gpu")
             chrome_options.add_argument("--disable-extensions")
+            chrome_options.add_argument("--lang=ru")
+            chrome_options.add_argument("--accept-lang=ru")
 #            chrome_options.add_argument("--blink-settings=imagesEnabled=false")
-            driver = webdriver.Chrome(chrome_options=chrome_options)
+            # Use webdriver-manager to automatically download and manage ChromeDriver
+            service = Service(ChromeDriverManager().install())
+            driver = webdriver.Chrome(service=service, options=chrome_options)
 
         if self.driver_name == "safari":
             driver = webdriver.Safari()
@@ -54,7 +61,7 @@ class GrabberApp:
                 search = search.strip()
 
                 if search == "":
-                    print(datetime.utcnow().strftime('%F %T.%f')[:-3]+". Search is empty")
+                    print(datetime.now(timezone.utc).strftime('%F %T.%f')[:-3]+". Search is empty")
                     continue
 
                 driver.get(
@@ -71,7 +78,7 @@ class GrabberApp:
 
                 soup = BeautifulSoup(driver.page_source, "lxml")
 
-                print(datetime.utcnow().strftime('%F %T.%f')[:-3]+". Start parse city " + city+ ". Search " + search+". Url "+driver.current_url)
+                print(datetime.now(timezone.utc).strftime('%F %T.%f')[:-3]+". Start parse city " + city+ ". Search " + search+". Url "+driver.current_url)
 
                 items_in_page = 0
                 old_items_in_page = 0
@@ -90,14 +97,14 @@ class GrabberApp:
                                 if old_items_in_page == items_in_page:
                                     soup = BeautifulSoup(driver.page_source, "lxml")
                                     if not soup.body.findAll(text='если не нашли их на карте'):
-                                        print(datetime.utcnow().strftime('%F %T.%f')[:-3]+". old_items_in_page == items_in_page. Load finish")
+                                        print(datetime.now(timezone.utc).strftime('%F %T.%f')[:-3]+". old_items_in_page == items_in_page. Load finish")
                                     else:
-                                        print(datetime.utcnow().strftime('%F %T.%f')[:-3]+". old_items_in_page == items_in_page. sleep 2")
+                                        print(datetime.now(timezone.utc).strftime('%F %T.%f')[:-3]+". old_items_in_page == items_in_page. sleep 2")
                                         sleep(2)
 
                                 old_items_in_page = items_in_page
 
-                                print(datetime.utcnow().strftime('%F %T.%f')[:-3]+". Items in page " + str(items_in_page))
+                                print(datetime.now(timezone.utc).strftime('%F %T.%f')[:-3]+". Items in page " + str(items_in_page))
                         except Exception as e:
                             print(traceback.format_exc())
                             sleep(1)
@@ -122,7 +129,7 @@ class GrabberApp:
 
                         ypage = InfoGetter.get_company_url(soup)
 
-                        print(datetime.utcnow().strftime('%F %T.%f')[:-3]+". "+str(i) + ". "+city+". Get company " + ypage)
+                        print(datetime.now(timezone.utc).strftime('%F %T.%f')[:-3]+". "+str(i) + ". "+city+". Get company " + ypage)
 
                         name = InfoGetter.get_name(soup)
                         address = InfoGetter.get_address(soup)
@@ -130,9 +137,14 @@ class GrabberApp:
                         company_id = InfoGetter.get_company_id(soup)
                         rating = InfoGetter.get_rating(soup)
 
-                        if city not in address:
+                        # Проверяем адрес с учетом регистра и разных вариантов написания города
+                        city_in_address = (city.lower() in address.lower() or 
+                                         city.title() in address or 
+                                         city.capitalize() in address)
+                        
+                        if not city_in_address:
                             cityErrors += 1
-                            print(datetime.utcnow().strftime('%F %T.%f')[:-3]+". -- "+ city+". Invalid city in address "+address+". Errors count "+str(cityErrors))
+                            print(datetime.now(timezone.utc).strftime('%F %T.%f')[:-3]+". -- "+ city+". Invalid city in address "+address+". Errors count "+str(cityErrors))
                             print("---------------------------")
                             print("---------------------------")
                             print("---------------------------")
@@ -147,30 +159,31 @@ class GrabberApp:
 
                         phones = []
                         if "phones" in self.columns:
-                            print(datetime.utcnow().strftime('%F %T.%f')[:-3]+". -- Get phones")
+                            print(datetime.now(timezone.utc).strftime('%F %T.%f')[:-3]+". -- Get phones")
                             phones = InfoGetter.get_search_phones(soup, driver, i)
 
-                        print(datetime.utcnow().strftime('%F %T.%f')[:-3]+". -- Phones " + str(phones))
+                        print(datetime.now(timezone.utc).strftime('%F %T.%f')[:-3]+". -- Phones " + str(phones))
 
                         opening_hours = []
                         if "opening_hours" in self.columns:
-                            print(datetime.utcnow().strftime('%F %T.%f')[:-3]+". -- Get opening hours")
+                            print(datetime.now(timezone.utc).strftime('%F %T.%f')[:-3]+". -- Get opening hours")
                             opening_hours = InfoGetter.get_opening_hours(soup)
 
                         categories = []
                         if "categories" in self.columns:
-                            print(datetime.utcnow().strftime('%F %T.%f')[:-3]+". -- Get categories")
+                            print(datetime.now(timezone.utc).strftime('%F %T.%f')[:-3]+". -- Get categories")
                             categories = InfoGetter.get_categories(soup, driver)
 
                         goods = []
                         if "goods" in self.columns:
-                            print(datetime.utcnow().strftime('%F %T.%f')[:-3]+". -- Get goods")
+                            print(datetime.now(timezone.utc).strftime('%F %T.%f')[:-3]+". -- Get goods")
                             try:
-                                menu = driver.find_element_by_class_name(
-                                    name="card-feature-view__main-content"
+                                from selenium.webdriver.common.by import By
+                                menu = driver.find_element(
+                                    By.CLASS_NAME, "card-feature-view__main-content"
                                 )
-                                menu_text = driver.find_element_by_class_name(
-                                    name="card-feature-view__main-content"
+                                menu_text = driver.find_element(
+                                    By.CLASS_NAME, "card-feature-view__main-content"
                                 ).text
 
                                 if ("товары и услуги" in menu_text.lower()) or (
@@ -205,13 +218,13 @@ class GrabberApp:
                                 opening_hours,
                             )
                             util_module.JSONWorker("set", output, self.output_file)
-                            print(datetime.utcnow().strftime('%F %T.%f')[:-3]+". -- Added " + name + ". " + ypage)
+                            print(datetime.now(timezone.utc).strftime('%F %T.%f')[:-3]+". -- Added " + name + ". " + ypage)
 
                 except Exception as e:
                     print(traceback.format_exc())
                     pass
 
-                print(datetime.utcnow().strftime('%F %T.%f')[:-3]+". Saved to " + self.output_file)
+                print(datetime.now(timezone.utc).strftime('%F %T.%f')[:-3]+". Saved to " + self.output_file)
         driver.quit()
 
 

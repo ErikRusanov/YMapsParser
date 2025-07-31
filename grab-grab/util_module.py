@@ -18,4 +18,4 @@ class JSONWorker(object):
 
     def set_jsonwork(self):
         with open(self.output_file, 'a', encoding='utf-8') as f:
-             f.write(json.dumps(self.result)+'\n')
+             f.write(json.dumps(self.result, ensure_ascii=False)+'\n')

@@ -1,8 +1,11 @@
 from bs4 import BeautifulSoup
 from selenium.common.exceptions import NoSuchElementException, MoveTargetOutOfBoundsException
 from selenium.webdriver import ActionChains
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from time import sleep
-from datetime import datetime
+from datetime import datetime, timezone
 from pygame import mixer
 import json
 
@@ -16,8 +19,9 @@ class InfoGetter(object):
         try:
             for data in soup_content.find_all("h1", {"class": "card-title-view__title"}):
                 name = data.getText()
+                return name  # Возвращаем первое найденное название
 
-            return name
+            return ""  # Если ничего не найдено
         except Exception:
             return ""
 
@@ -25,9 +29,9 @@ class InfoGetter(object):
     def check_captcha(driver):
         """ Проверка капчи """
         soup = BeautifulSoup(driver.page_source, "lxml")
-        print(datetime.utcnow().strftime('%F %T.%f')[:-3]+". Check")
+        print(datetime.now(timezone.utc).strftime('%F %T.%f')[:-3]+". Check")
         if soup.find_all("div", {"class": "CheckboxCaptcha"}) or soup.find_all("div", {"class": "AdvancedCaptcha"}) :
-            print(datetime.utcnow().strftime('%F %T.%f')[:-3]+". Captcha. Wait 20s")
+            print(datetime.now(timezone.utc).strftime('%F %T.%f')[:-3]+". Captcha. Wait 20s")
             mixer.init()
             mixer.music.load('../dist/alert.wav')
             mixer.music.play()
@@ -42,8 +46,9 @@ class InfoGetter(object):
         try:
             for data in soup_content.find_all("div", {"class": "business-contacts-view__address-link"}):
                 address = data.getText()
+                return address  # Возвращаем первый найденный адрес
 
-            return address
+            return ""  # Если ничего не найдено
         except Exception:
             return ""
 
@@ -54,8 +59,9 @@ class InfoGetter(object):
         try:
             for data in soup_content.find_all("a", {"class": "card-title-view__title-link"}):
                 url = "https://yandex.ru"+data.get('href')
+                return url  # Возвращаем первый найденный URL
 
-            return url
+            return ""  # Если ничего не найдено
         except Exception as e:
             print('get_company_url error '+getattr(e, 'message', repr(e)))
             return ""
@@ -67,8 +73,9 @@ class InfoGetter(object):
         try:
             for data in soup_content.find_all("div", {"class": "business-card-view"}):
                 website = data.get('data-id')
+                return website  # Возвращаем первый найденный ID
 
-            return website
+            return ""  # Если ничего не найдено
         except Exception as e:
             print('get_company_id error '+getattr(e, 'message', repr(e)))
             return ""
@@ -80,8 +87,9 @@ class InfoGetter(object):
         try:
             for data in soup_content.find_all("span", {"class": "business-urls-view__text"}):
                 website = data.getText()
+                return website  # Возвращаем первый найденный сайт
 
-            return website
+            return ""  # Если ничего не найдено
         except Exception:
             return ""
 
@@ -137,7 +145,7 @@ class InfoGetter(object):
                 pass
 
         except Exception:
-            return ""
+            return {}
 
         return dict(zip(dishes, prices))
 
@@ -147,23 +155,16 @@ class InfoGetter(object):
         phones = []
 
         try:
-            driver.execute_script("document.getElementsByClassName('card-phones-view__more')[0].click();")
-#            sleep(0.2)
+            # Ищем все номера телефонов в span элементах с itemprop="telephone"
+            for data in soup_content.find_all("span", {"itemprop": "telephone"}):
+                phone_number = data.getText().strip()
+                if phone_number:  # Проверяем, что номер не пустой
+                    phones.append(phone_number)
 
-            driver.execute_script("document.getElementsByClassName('card-phones-view__phone-number')[0].click();")
-#            sleep(0.2)
-
-            soup_content = BeautifulSoup(driver.page_source, "lxml")
-
-            for data in soup_content.find_all("div", {"class": "card-phones-view__phone-number"}):
-                phones.append(data.getText())
-
-            phones = list(set(phones))
+            phones = list(set(phones))  # Убираем дубликаты
             return phones
         except Exception as e:
             err = getattr(e, 'message', repr(e))
-            if "undefined is not an object" in err:
-                return []
             print('get_phones error '+err)
             return []
 
@@ -181,7 +182,7 @@ class InfoGetter(object):
             return categories
         except Exception as e:
             print('get_categories error '+getattr(e, 'message', repr(e)))
-            return ""
+            return []
 
 
 
@@ -219,7 +220,7 @@ class InfoGetter(object):
             reviews_count = 0
 
         except Exception:
-            return ""
+            return []
 
         if reviews_count > 150:
             find_range = range(100)
@@ -241,4 +242,4 @@ class InfoGetter(object):
             return reviews
         except Exception as e:
             print('get_reviews error '+getattr(e, 'message', repr(e)))
-            return ""
+            return []
