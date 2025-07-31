@@ -1,4 +1,5 @@
 import json
+import os
 
 class JSONWorker(object):
     """ Класс для работы с JSON файлом"""
@@ -17,5 +18,26 @@ class JSONWorker(object):
             json.dump(self.result, f, ensure_ascii=False, indent=4)
 
     def set_jsonwork(self):
-        with open(self.output_file, 'a', encoding='utf-8') as f:
-             f.write(json.dumps(self.result, ensure_ascii=False)+'\n')
+        # Проверяем, существует ли файл и не пустой ли он
+        if os.path.exists(self.output_file) and os.path.getsize(self.output_file) > 0:
+            # Читаем существующий массив
+            with open(self.output_file, 'r', encoding='utf-8') as f:
+                try:
+                    existing_data = json.load(f)
+                    if not isinstance(existing_data, list):
+                        existing_data = [existing_data]
+                except json.JSONDecodeError:
+                    # Если файл поврежден, начинаем с пустого массива
+                    existing_data = []
+        else:
+            # Создаем новый файл с пустым массивом
+            with open(self.output_file, 'w', encoding='utf-8') as f:
+                json.dump([], f, ensure_ascii=False)
+            existing_data = []
+        
+        # Добавляем новый объект в массив
+        existing_data.append(self.result)
+        
+        # Записываем обновленный массив обратно в файл
+        with open(self.output_file, 'w', encoding='utf-8') as f:
+            json.dump(existing_data, f, ensure_ascii=False, indent=4)
