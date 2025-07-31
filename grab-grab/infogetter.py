@@ -8,6 +8,7 @@ from time import sleep
 from datetime import datetime, timezone
 from pygame import mixer
 import json
+import re
 
 class InfoGetter(object):
     """ Класс с логикой парсинга данных из объекта BeautifulSoup"""
@@ -156,12 +157,56 @@ class InfoGetter(object):
 
         try:
             # Ищем все номера телефонов в span элементах с itemprop="telephone"
-            for data in soup_content.find_all("span", {"itemprop": "telephone"}):
+            span_phones = soup_content.find_all("span", {"itemprop": "telephone"})
+            
+            for data in span_phones:
                 phone_number = data.getText().strip()
                 if phone_number:  # Проверяем, что номер не пустой
                     phones.append(phone_number)
 
-            phones = list(set(phones))  # Убираем дубликаты
+            # Также ищем телефоны в других возможных местах
+            # Ищем в div элементах с itemprop="telephone"
+            for data in soup_content.find_all("div", {"itemprop": "telephone"}):
+                phone_number = data.getText().strip()
+                if phone_number:
+                    phones.append(phone_number)
+
+            # Ищем в a элементах с itemprop="telephone"
+            for data in soup_content.find_all("a", {"itemprop": "telephone"}):
+                phone_number = data.getText().strip()
+                if phone_number:
+                    phones.append(phone_number)
+
+            # Ищем телефоны по тексту, содержащему номер телефона
+            import re
+            phone_pattern = re.compile(r'[\+]?[0-9\s\-\(\)]{7,}')
+            
+            # Ищем во всех текстовых элементах
+            for element in soup_content.find_all(text=True):
+                if element.parent and element.parent.name in ['span', 'div', 'a', 'p']:
+                    text = element.strip()
+                    if text and len(text) > 5:  # Ищем только в достаточно длинных текстах
+                        matches = phone_pattern.findall(text)
+                        for match in matches:
+                            # Очищаем номер от лишних символов
+                            clean_phone = re.sub(r'[^\d\+\(\)\-\s]', '', match).strip()
+                            if len(clean_phone) >= 7:  # Минимальная длина номера
+                                phones.append(clean_phone)
+
+            # Убираем дубликаты и пустые значения
+            phones = list(set([phone for phone in phones if phone and len(phone.strip()) > 0]))
+            
+            # Если телефоны не найдены в текущем soup, попробуем обновить страницу
+            if not phones:
+                sleep(0.5)
+                soup_content = BeautifulSoup(driver.page_source, "lxml")
+                
+                # Повторяем поиск в обновленном soup
+                for data in soup_content.find_all("span", {"itemprop": "telephone"}):
+                    phone_number = data.getText().strip()
+                    if phone_number:
+                        phones.append(phone_number)
+
             return phones
         except Exception as e:
             err = getattr(e, 'message', repr(e))

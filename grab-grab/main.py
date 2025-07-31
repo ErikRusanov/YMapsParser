@@ -158,9 +158,9 @@ class GrabberApp:
                         cityErrors = 0
 
                         phones = []
-                        if "phones" in self.columns:
-                            print(datetime.now(timezone.utc).strftime('%F %T.%f')[:-3]+". -- Get phones")
-                            phones = InfoGetter.get_search_phones(soup, driver, i)
+                        # По умолчанию всегда парсим телефоны
+                        print(datetime.now(timezone.utc).strftime('%F %T.%f')[:-3]+". -- Get phones")
+                        phones = InfoGetter.get_search_phones(soup, driver, i)
 
                         print(datetime.now(timezone.utc).strftime('%F %T.%f')[:-3]+". -- Phones " + str(phones))
 
